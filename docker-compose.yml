@@ -1,0 +1,53 @@
+version: '3.8' # Use the latest stable version
+
+services:
+  webservice:
+    image: python:3.9-slim # Use an official image without a pinned digest
+    build:
+      context: ./web_service
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./web_service/config.txt:/app/config.txt:ro # Mount as read-only for security
+    deploy:
+      resources: # Limit resource usage
+        limits:
+          cpus: "0.5"
+          memory: "256M"
+    networks:
+      - app_network # Use a custom network to isolate services
+    healthcheck: # Add health check to monitor the service
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  loadbalancer:
+    image: nginx:alpine # Use a lightweight official image without a pinned digest
+    build:
+      context: ./load_balancer
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - webservice
+    deploy:
+      resources: # Limit resource usage
+        limits:
+          cpus: "1.0"
+          memory: "512M"
+    networks:
+      - app_network # Use the same custom network for communication
+    healthcheck: # Add health check to ensure service health
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  app_network: # Define a custom network
+    driver: bridge
+
+volumes:
+  web_config: # Named volume for persistent configurations if needed
